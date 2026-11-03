@@ -7,43 +7,34 @@ const scholarships=[{pct:100,title:'Punjab & Chandigarh SC category',condition:'
 const rupee=n=>'₹'+Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:2});
 const shortDate=s=>s?String(s).slice(0,10):'—';
 const toast=(msg,error=false)=>{const t=$('#toast');t.textContent=msg;t.className=error?'error':'';t.style.display='block';clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.style.display='none',6500)};
-// GitHub -> Apps Script: HTML form POST + HTMLService response to window.top.
-// No CORS fetch, Cloudflare Worker or nested postMessage request iframe.
-const backendOrigin = 'https://script.google.com';
+// GitHub Pages -> Netlify Function -> Google Apps Script (no iframe).
+const proxyUrl = window.GJIMT_CONFIG?.apiUrl;
 function bridge(){
-  const url=window.GJIMT_CONFIG?.bridgeUrl;
-  if(!url||!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec(?:\?.*)?$/.test(url)){
-    loginScreen('Set your deployed Apps Script /exec URL in config.js');return;
+  if (!proxyUrl || !/^https:\/\/[a-z0-9.-]+\.netlify\.app\/\.netlify\/functions\/api$/i.test(proxyUrl)) {
+    loginScreen('Configure your Netlify proxy URL in config.js');
+    return;
   }
-  state.bridgeReady=true;
+  state.bridgeReady = true;
 }
-window.addEventListener('message',ev=>{
-  // Apps Script HTMLService responses run on googleusercontent.com.
-  if(!/^https:\/\/(?:[a-z0-9-]+\.)?googleusercontent\.com$/i.test(ev.origin))return;
-  const d=ev.data;if(!d||d.kind!=='GJIMT_RESPONSE')return;
-  const p=state.pending.get(d.id);if(!p)return;
-  state.pending.delete(d.id);clearTimeout(p.timer);p.frame.remove();
-  d.result?.ok?p.resolve(d.result.data):p.reject(Error(d.result?.error||'Request failed'));
-});
-function api(action,payload={}){
-  return new Promise((resolve,reject)=>{
-    if(!state.bridgeReady){reject(Error('Backend not configured.'));return;}
-    const id='r'+(++state.seq)+'_'+Math.random().toString(36).slice(2);
-    const frame=document.createElement('iframe');
-    frame.name='npf_response_'+id;frame.title='Backend response';frame.hidden=true;
-    document.body.appendChild(frame);
-    const form=document.createElement('form');form.method='POST';
-    form.action=window.GJIMT_CONFIG.bridgeUrl;form.target=frame.name;form.hidden=true;
-    const input=document.createElement('input');input.name='request';
-    input.value=JSON.stringify({id,action,payload,token:state.token});
-    form.appendChild(input);document.body.appendChild(form);
-    const timer=setTimeout(()=>{
-      state.pending.delete(id);frame.remove();reject(Error('Backend request timed out. Check Apps Script deployment and permissions.'));
-    },45000);
-    state.pending.set(id,{resolve,reject,timer,frame});
-    try{form.submit()}catch(err){clearTimeout(timer);state.pending.delete(id);frame.remove();reject(err)}
-    finally{form.remove()}
-  });
+async function api(action, payload = {}) {
+  if (!state.bridgeReady) throw Error('Netlify proxy URL is not configured.');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 45000);
+  try {
+    const response = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action, payload, token: state.token}),
+      signal: controller.signal,
+      cache: 'no-store'
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw Error(result.error || 'Backend request failed (' + response.status + ')');
+    return result.data;
+  } catch (err) {
+    if (err.name === 'AbortError') throw Error('Request timed out. Check the Netlify function logs.');
+    throw err;
+  } finally {clearTimeout(timer);}
 }
 async function run(action,payload={},refresh=true){try{const d=await api(action,payload);toast('Saved successfully');if(refresh)await reload();return d}catch(e){toast(e.message,true);throw e}}
 async function loadMe(){try{state.user=await api('me');await reload()}catch(e){state.token='';sessionStorage.removeItem('npf_token');loginScreen(e.message)}}
