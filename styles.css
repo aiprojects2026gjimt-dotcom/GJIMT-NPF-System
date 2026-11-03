@@ -5,3 +5,6 @@
 
 /* Fixed desktop and mobile login logo placement */
 .login-brand-row{display:grid!important;grid-template-columns:minmax(0,1fr) 92px!important;align-items:center!important;gap:14px!important;width:100%!important;margin-bottom:22px!important}.login-brand-row .brand-logo{width:100%!important;max-width:100%!important;min-width:0!important;display:block!important}.login-brand-row .anniversary{width:90px!important;max-width:100%!important;max-height:120px!important;display:block!important;margin:0!important}@media(max-width:420px){.login-brand-row{grid-template-columns:minmax(0,1fr) 70px!important;gap:9px!important}.login-brand-row .anniversary{width:70px!important}}
+
+/* Login logo header override: only the login screen */
+.login .login-brand-row{display:grid!important;grid-template-columns:minmax(0,1fr) 88px!important;align-items:center!important;gap:14px!important;margin-bottom:20px!important}.login .login-brand-row>.brand-logo{display:block!important;width:100%!important;max-width:100%!important;min-width:0!important}.login .login-brand-row>.anniversary{display:block!important;width:88px!important;max-width:100%!important;height:auto!important;margin:0!important}@media(max-width:420px){.login .login-brand-row{grid-template-columns:minmax(0,1fr) 70px!important;gap:9px!important}.login .login-brand-row>.anniversary{width:70px!important}}
